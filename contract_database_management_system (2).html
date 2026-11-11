@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contract Database Management System - LifeBank A Rural Bank</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            500: '#0284c7',
+                            600: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .tab-btn.active {
+            border-bottom: 3px solid #0284c7;
+            color: #0284c7;
+            font-weight: 700;
+            background-color: #f0f7ff;
+        }
+        .editable-field {
+            transition: background-color 0.2s, outline 0.2s;
+            border-radius: 4px;
+            padding: 2px 4px;
+        }
+        .edit-mode .editable-field {
+            background-color: #f0f9ff;
+            outline: 1px dashed #0284c7;
+            cursor: pointer;
+        }
+        .edit-mode .editable-field:hover {
+            background-color: #e0effe;
+        }
+        /* Print Styling */
+        @media print {
+            header, button, #editModeBanner, #toast, .no-print {
+                display: none !important;
+            }
+            body {
+                background-color: #ffffff !important;
+            }
+            .tab-content {
+                display: block !important;
+            }
+            .shadow-sm, .shadow-md, .shadow-xl {
+                box-shadow: none !important;
+            }
+            .border {
+                border-color: #e2e8f0 !important;
+            }
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col antialiased">
+
+    <!-- Toast Notification Container -->
+    <div id="toast" class="fixed top-20 right-5 z-50 transform translate-x-full transition-transform duration-300 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-xl flex items-center gap-3 text-xs font-semibold pointer-events-none">
+        <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400 text-base"></i>
+        <span id="toastMsg">Contract System Updated</span>
+    </div>
+
+    <!-- Top Navigation Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col sm:flex-row justify-between items-center py-3 sm:h-16 gap-3 sm:gap-0">
+                <!-- Brand Title -->
+                <div class="flex items-center space-x-3">
+                    <img src="https://lbrb.ph/icon.png" alt="LifeBank Logo" class="w-9 h-9 object-contain rounded-lg" onerror="this.src='https://placehold.co/36x36/0284c7/ffffff?text=LB'">
+                    <div>
+                        <h1 class="text-lg font-bold text-slate-900 leading-tight">LifeBank A - Rural Bank</h1>
+                        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Compliance Department - Contract Database System</p>
+                    </div>
+                </div>
+
+                <!-- Action Controls -->
+                <div class="flex items-center space-x-2 sm:space-x-3">
+                    <button onclick="toggleEditMode()" id="editModeToggleBtn" class="px-3.5 py-1.5 text-xs font-bold bg-sky-50 hover:bg-sky-100 text-sky-700 rounded-lg transition flex items-center gap-1.5 border border-sky-300 shadow-sm">
+                        <i class="fa-solid fa-pen-to-square"></i> <span id="editModeBtnText">Enable Edit Mode</span>
+                    </button>
+
+                    <button onclick="openAddContractModal()" class="px-3 py-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition flex items-center gap-1.5 shadow-sm">
+                        <i class="fa-solid fa-plus-circle"></i> Add New Contract
+                    </button>
+
+                    <a id="gdriveGlobalBtn" href="https://drive.google.com" target="_blank" rel="noopener noreferrer" class="px-3 py-1.5 text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg transition flex items-center gap-1.5 border border-amber-300 shadow-sm" title="Open Google Drive Repository">
+                        <i class="fa-brands fa-google-drive text-amber-600"></i> Google Drive Repo
+                    </a>
+                    
+                    <button onclick="resetContractData()" class="px-2.5 py-1.5 text-xs font-medium bg-slate-100 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 text-slate-600 rounded-lg transition flex items-center gap-1.5 border border-slate-300" title="Reset dataset to defaults">
+                        <i class="fa-solid fa-rotate-right"></i> Reset Data
+                    </button>
+                    
+                    <button onclick="window.print()" class="px-3 py-1.5 text-xs font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition flex items-center gap-1.5 border border-slate-300">
+                        <i class="fa-solid fa-print"></i> Print
+                    </button>
+                </div>
+            </div>
+
+            <!-- Navigation Tabs -->
+            <nav class="flex space-x-2 sm:space-x-8 border-t border-slate-100 overflow-x-auto text-xs sm:text-sm font-medium">
+                <button onclick="switchTab('master')" id="tab-master" class="tab-btn active py-3 px-3 sm:px-4 text-slate-600 hover:text-sky-600 whitespace-nowrap transition flex items-center gap-2">
+                    <i class="fa-solid fa-database"></i> Contract Master Database
+                </button>
+                <button onclick="switchTab('analytics')" id="tab-analytics" class="tab-btn py-3 px-3 sm:px-4 text-slate-600 hover:text-sky-600 whitespace-nowrap transition flex items-center gap-2">
+                    <i class="fa-solid fa-chart-column"></i> Department Analytics
+                </button>
+                <button onclick="switchTab('expirations')" id="tab-expirations" class="tab-btn py-3 px-3 sm:px-4 text-slate-600 hover:text-sky-600 whitespace-nowrap transition flex items-center gap-2">
+                    <i class="fa-solid fa-clock-rotate-left"></i> Renewal & Risk Tracker
+                </button>
+                <button onclick="switchTab('audit')" id="tab-audit" class="tab-btn py-3 px-3 sm:px-4 text-slate-600 hover:text-sky-600 whitespace-nowrap transition flex items-center gap-2">
+                    <i class="fa-solid fa-file-shield"></i> Compliance & Audit Reports
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+        <!-- EDIT MODE BAR NOTICE -->
+        <div id="editModeBanner" class="hidden bg-sky-600 text-white px-4 py-3 rounded-xl shadow-md flex flex-col sm:flex-row justify-between items-center gap-3">
+            <div class="flex items-center gap-2 text-xs sm:text-sm font-medium">
+                <i class="fa-solid fa-pen-to-square text-sky-200 text-lg"></i>
+                <span><strong>Interactive Edit Mode Active:</strong> You can edit contract attributes, update payment terms, and add or delete records directly in real time.</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="openAddContractModal()" class="px-3 py-1.5 bg-white text-sky-700 hover:bg-sky-50 font-bold text-xs rounded-lg shadow transition flex items-center gap-1">
+                    <i class="fa-solid fa-plus"></i> New Contract Record
+                </button>
+            </div>
+        </div>
+
+        <!-- KPI SUMMARY BAR -->
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            <!-- Total Active Contracts -->
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition">
+                <div class="flex justify-between items-start">
+                    <span class="text-xs font-semibold text-slate-500 uppercase">Active Contracts</span>
+                    <span class="p-2 rounded-lg bg-emerald-50 text-emerald-600 text-xs"><i class="fa-solid fa-file-contract"></i></span>
+                </div>
+                <div class="mt-2 flex items-baseline gap-2">
+                    <span id="kpi-active-count" class="text-2xl font-extrabold text-slate-900">0</span>
+                    <span id="kpi-total-records" class="text-xs text-slate-500 font-medium">/ 0 Total</span>
+                </div>
+                <div class="w-full bg-slate-100 rounded-full h-1.5 mt-2 overflow-hidden">
+                    <div id="kpi-active-bar" class="bg-emerald-600 h-1.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Total Contract Value -->
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition">
+                <div class="flex justify-between items-start">
+                    <span class="text-xs font-semibold text-slate-500 uppercase">Total Portfolio Value</span>
+                    <span class="p-2 rounded-lg bg-indigo-50 text-indigo-600 text-xs"><i class="fa-solid fa-vault"></i></span>
+                </div>
+                <div class="mt-2 flex items-baseline gap-1">
+                    <span id="kpi-total-value" class="text-2xl font-extrabold text-slate-900">₱0.00</span>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-1">Across all registered departments</p>
+            </div>
+
+            <!-- Expiring Soon -->
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition">
+                <div class="flex justify-between items-start">
+                    <span class="text-xs font-semibold text-slate-500 uppercase">Expiring (&le;90 Days)</span>
+                    <span class="p-2 rounded-lg bg-amber-50 text-amber-600 text-xs"><i class="fa-solid fa-triangle-exclamation"></i></span>
+                </div>
+                <div class="mt-2 flex items-baseline gap-2">
+                    <span id="kpi-expiring-count" class="text-2xl font-extrabold text-amber-600">0</span>
+                    <span class="text-xs text-amber-700 font-bold">Needs Review</span>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-1">Renewal preparation required</p>
+            </div>
+
+            <!-- Terminated & Expired -->
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition">
+                <div class="flex justify-between items-start">
+                    <span class="text-xs font-semibold text-slate-500 uppercase">Expired / Terminated</span>
+                    <span class="p-2 rounded-lg bg-rose-50 text-rose-600 text-xs"><i class="fa-solid fa-ban"></i></span>
+                </div>
+                <div class="mt-2 flex items-baseline gap-2">
+                    <span id="kpi-inactive-count" class="text-2xl font-extrabold text-rose-700">0</span>
+                    <span class="text-xs text-slate-500 font-medium">Inactive</span>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-1">Archived or pending replacement</p>
+            </div>
+
+            <!-- Departments Covered -->
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition col-span-2 sm:col-span-1">
+                <div class="flex justify-between items-start">
+                    <span class="text-xs font-semibold text-slate-500 uppercase">Departments</span>
+                    <span class="p-2 rounded-lg bg-sky-50 text-sky-600 text-xs"><i class="fa-solid fa-building-user"></i></span>
+                </div>
+                <div class="mt-2 flex items-baseline gap-2">
+                    <span id="kpi-dept-count" class="text-2xl font-extrabold text-sky-700">14</span>
+                    <span class="text-xs text-emerald-600 font-bold"><i class="fa-solid fa-check"></i> Compliant</span>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-1">Compliance Department Monitored</p>
+            </div>
+        </div>
+
+        <!-- TAB 1: CONTRACT MASTER DATABASE TABLE -->
+        <div id="sec-master" class="tab-content space-y-6">
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="p-5 border-b border-slate-100 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
+                    <div>
+                        <h2 class="font-bold text-slate-900 text-base">Master Contract Inventory</h2>
+                        <p class="text-xs text-slate-500">Official LifeBank Compliance Department registry of vendor, supplier, and biller contracts.</p>
+                    </div>
+
+                    <!-- Filter & Search Controls -->
+                    <div class="flex flex-wrap items-center gap-2 text-xs w-full xl:w-auto">
+                        <div class="relative flex-1 sm:w-52">
+                            <input type="text" id="tableSearch" onkeyup="filterTable()" placeholder="Search Code, Vendor, Service..." class="w-full pl-8 pr-3 py-1.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                            <i class="fa-solid fa-search absolute left-2.5 top-2.5 text-slate-400"></i>
+                        </div>
+                        <select id="deptFilter" onchange="filterTable()" class="border border-slate-300 rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                            <option value="ALL">All Departments</option>
+                            <option value="ADMIN">ADMIN</option>
+                            <option value="BBOD">BBOD</option>
+                            <option value="CRD">CRD</option>
+                            <option value="SDID">SDID</option>
+                            <option value="ISTD">ISTD / IT</option>
+                            <option value="FD">FD</option>
+                            <option value="HDD">HDD</option>
+                            <option value="LEGAL">LEGAL</option>
+                            <option value="CD">CD (Compliance)</option>
+                            <option value="SEC. & SAFETY">SEC. & SAFETY</option>
+                        </select>
+                        <select id="typeFilter" onchange="filterTable()" class="border border-slate-300 rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                            <option value="ALL">All Third Party Types</option>
+                            <option value="SUPPLIER">SUPPLIER</option>
+                            <option value="SERVICE PROVIDER">SERVICE PROVIDER</option>
+                            <option value="BILLER">BILLER</option>
+                            <option value="RELATED PARTY">RELATED PARTY</option>
+                            <option value="VENDOR">VENDOR</option>
+                        </select>
+                        <select id="statusFilter" onchange="filterTable()" class="border border-slate-300 rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                            <option value="ALL">All Statuses</option>
+                            <option value="Active">Active</option>
+                            <option value="Expiring Soon">Expiring Soon</option>
+                            <option value="Expired">Expired</option>
+                            <option value="Terminated">Terminated</option>
+                            <option value="Under Review">Under Review</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Table Container -->
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse text-xs">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-600 font-bold border-b border-slate-200 uppercase tracking-wider">
+                                <th class="p-3 whitespace-nowrap">Contract ID / Code</th>
+                                <th class="p-3">Dept</th>
+                                <th class="p-3">Third Party Type & Vendor</th>
+                                <th class="p-3">Service Offered</th>
+                                <th class="p-3">Contract Validity</th>
+                                <th class="p-3">Payment Mode</th>
+                                <th class="p-3 text-right">Contract Amount</th>
+                                <th class="p-3">Type</th>
+                                <th class="p-3">Status</th>
+                                <th class="p-3 text-center">Doc</th>
+                                <th class="p-3 text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="contractTableBody" class="divide-y divide-slate-100 text-slate-700">
+                            <!-- Populated dynamically via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: DEPARTMENT BREAKDOWN & ANALYTICS -->
+        <div id="sec-analytics" class="tab-content hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Department Contract Volume Chart -->
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm lg:col-span-2 flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <h2 class="font-bold text-slate-800 text-base">Contract Valuation by Department</h2>
+                            <span class="text-xs text-slate-400 font-medium">Compliance Oversight</span>
+                        </div>
+                        <p class="text-xs text-slate-500 mb-4">Total financial commitment broken down by bank operating departments.</p>
+                    </div>
+
+                    <div class="h-64 relative mb-2">
+                        <canvas id="deptValueChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Third Party Type Doughnut -->
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <h2 class="font-bold text-slate-800 text-base">Third Party Categories</h2>
+                            <span class="text-xs text-slate-400 font-medium">Distribution</span>
+                        </div>
+                        <p class="text-xs text-slate-500 mb-4">Contract breakdown across vendor risk classifications.</p>
+                    </div>
+
+                    <div class="h-52 relative flex justify-center items-center">
+                        <canvas id="typeDoughnutChart"></canvas>
+                    </div>
+
+                    <div id="typeLegendGrid" class="grid grid-cols-2 gap-2 mt-4 text-xs font-medium">
+                        <!-- Rendered via JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: EXPIRATION & RENEWAL RISK TRACKER -->
+        <div id="sec-expirations" class="tab-content hidden space-y-6">
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 pb-4">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-900">Contract Expiration & Renewal Schedule</h2>
+                        <p class="text-xs text-slate-500">Early warning system for expiring service agreements requiring renewal negotiation or compliance audit.</p>
+                    </div>
+                    <span class="bg-amber-100 text-amber-800 text-xs px-3 py-1 rounded-full font-bold">
+                        <i class="fa-solid fa-bell mr-1"></i> 90-Day Renewal Monitoring Active
+                    </span>
+                </div>
+
+                <!-- Expiring Contracts List -->
+                <div class="space-y-4" id="expiringCardsContainer">
+                    <!-- Dynamic rendering -->
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 4: COMPLIANCE & AUDIT REPORTS -->
+        <div id="sec-audit" class="tab-content hidden space-y-6">
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+                <div class="flex justify-between items-center border-b border-slate-100 pb-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-900">Regulatory & Internal Audit Summary Report</h2>
+                        <p class="text-xs text-slate-500">BSP & Compliance Department Contract Verification Metrics</p>
+                    </div>
+                    <button onclick="window.print()" class="px-3 py-1.5 bg-sky-600 text-white rounded-lg text-xs font-bold shadow hover:bg-sky-700">
+                        <i class="fa-solid fa-download mr-1"></i> Export Compliance Log
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="p-4 bg-emerald-50 rounded-xl border border-emerald-200">
+                        <h3 class="font-bold text-emerald-900 text-sm">Active & Fully Executed</h3>
+                        <p class="text-2xl font-extrabold text-emerald-700 mt-2" id="audit-active-val">0</p>
+                        <p class="text-xs text-emerald-800 mt-1">Contracts passed regulatory alignment and active operational SLAs.</p>
+                    </div>
+
+                    <div class="p-4 bg-amber-50 rounded-xl border border-amber-200">
+                        <h3 class="font-bold text-amber-900 text-sm">Pending / Renewal Due</h3>
+                        <p class="text-2xl font-extrabold text-amber-700 mt-2" id="audit-pending-val">0</p>
+                        <p class="text-xs text-amber-800 mt-1">Contracts requiring updated terms, legal re-examination, or renewal notices.</p>
+                    </div>
+
+                    <div class="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                        <h3 class="font-bold text-slate-900 text-sm">Total Contract Financial Outlay</h3>
+                        <p class="text-2xl font-extrabold text-slate-800 mt-2" id="audit-financial-val">₱0.00</p>
+                        <p class="text-xs text-slate-600 mt-1">Cumulative registered valuation across all active bank vendor contracts.</p>
+                    </div>
+                </div>
+
+                <div class="pt-4 border-t border-slate-100">
+                    <h3 class="font-bold text-slate-800 text-sm mb-3">Compliance Department Certification Note</h3>
+                    <p class="text-xs text-slate-600 leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        All third-party vendor agreements registered in this database are subjected to regular compliance review pursuant to BSP guidelines on Outsourcing and Risk Management. Department heads maintaining these third-party relationships are required to submit renewed contract documentation at least 30 calendar days prior to contract expiration.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- MODAL: ADD / EDIT CONTRACT -->
+    <div id="contractModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm hidden">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl mx-4 overflow-hidden border border-slate-200 max-h-[90vh] flex flex-col">
+            <div class="bg-sky-600 text-white px-6 py-4 flex justify-between items-center flex-shrink-0">
+                <h3 id="modalTitle" class="font-bold text-base flex items-center gap-2">
+                    <i class="fa-solid fa-file-signature"></i> Add New Contract
+                </h3>
+                <button onclick="closeContractModal()" class="text-sky-100 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <form id="contractForm" onsubmit="saveContractForm(event)" class="p-6 space-y-4 text-xs overflow-y-auto flex-1">
+                <input type="hidden" id="editIndex" value="-1">
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Contract ID / Code *</label>
+                        <input type="text" id="formCode" required placeholder="e.g. LBRB-2026-015" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Maintained by Department *</label>
+                        <select id="formDept" required class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                            <option value="ADMIN">ADMIN</option>
+                            <option value="BBOD">BBOD</option>
+                            <option value="CRD">CRD</option>
+                            <option value="SDID">SDID</option>
+                            <option value="ISTD">ISTD / IT</option>
+                            <option value="FD">FD</option>
+                            <option value="HDD">HDD</option>
+                            <option value="LEGAL">LEGAL</option>
+                            <option value="SEC. & SAFETY">SEC. & SAFETY</option>
+                            <option value="CD">CD (Compliance)</option>
+                            <option value="IAD">IAD</option>
+                            <option value="OP">OP</option>
+                            <option value="SRDI">SRDI</option>
+                            <option value="SUSTAINABILITY">SUSTAINABILITY</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Type of Third Party *</label>
+                        <select id="formPartyType" required class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                            <option value="SUPPLIER">SUPPLIER</option>
+                            <option value="SERVICE PROVIDER">SERVICE PROVIDER</option>
+                            <option value="BILLER">BILLER</option>
+                            <option value="RELATED PARTY">RELATED PARTY</option>
+                            <option value="VENDOR">VENDOR</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Vendor / Provider Name *</label>
+                        <input type="text" id="formVendor" required placeholder="e.g. M365 Corp / Security Agency" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Service Offered / Particulars *</label>
+                    <input type="text" id="formService" required placeholder="e.g. Airconditioning Maintenance, Microsoft 365 License, Security Services" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-700 mb-1">Google Drive Document / Database Link</label>
+                    <input type="url" id="formDriveLink" placeholder="https://drive.google.com/drive/folders/..." class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Date Submitted to CD</label>
+                        <input type="date" id="formDateSubmitted" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Contract Start Date *</label>
+                        <input type="date" id="formDateStart" required class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Valid Until (Expiry) *</label>
+                        <input type="date" id="formDateExpiry" required class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Terms *</label>
+                        <input type="text" id="formTerms" required placeholder="e.g. 1 Year, 3 Years, Monthly" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Mode of Payment *</label>
+                        <select id="formPaymentMode" required class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                            <option value="Check Payment">Check Payment</option>
+                            <option value="Online Transfer">Online Transfer</option>
+                            <option value="Credit Memo">Credit Memo</option>
+                            <option value="Bills Payment Online">Bills Payment Online</option>
+                            <option value="ECPay">ECPay</option>
+                            <option value="Telegraphic Transfer">Telegraphic Transfer</option>
+                            <option value="Credit Card">Credit Card</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Contract Amount (₱) *</label>
+                        <input type="number" step="0.01" id="formAmount" required placeholder="0.00" class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Type of Contract *</label>
+                        <select id="formContractType" required class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                            <option value="NEW">NEW</option>
+                            <option value="RENEWAL">RENEWAL</option>
+                            <option value="AMENDMENT">AMENDMENT</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-700 mb-1">Status *</label>
+                        <select id="formStatus" required class="w-full border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                            <option value="Active">Active</option>
+                            <option value="Expiring Soon">Expiring Soon</option>
+                            <option value="Expired">Expired</option>
+                            <option value="Terminated">Terminated</option>
+                            <option value="Under Review">Under Review</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                    <button type="button" onclick="closeContractModal()" class="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-100 font-semibold">Cancel</button>
+                    <button type="submit" class="px-5 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-lg font-bold shadow">Save Contract Record</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: VIEW DETAILS -->
+    <div id="viewModal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm hidden">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-4 overflow-hidden border border-slate-200">
+            <div class="bg-slate-800 text-white px-6 py-4 flex justify-between items-center">
+                <h3 class="font-bold text-base flex items-center gap-2">
+                    <i class="fa-solid fa-file-contract"></i> Contract Information
+                </h3>
+                <button onclick="closeViewModal()" class="text-slate-300 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="viewModalBody" class="p-6 space-y-3 text-xs text-slate-700">
+                <!-- Dynamically filled -->
+            </div>
+            <div class="bg-slate-50 px-6 py-3 border-t border-slate-200 flex justify-between items-center">
+                <span class="text-[11px] text-slate-500"><i class="fa-solid fa-shield-check text-emerald-600"></i> LifeBank Compliance Verified</span>
+                <button onclick="closeViewModal()" class="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 font-bold rounded-lg text-slate-700">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-4 mt-8 text-center text-xs text-slate-500">
+        <p>LifeBank A - Rural Bank &copy; 2026 Compliance Department Contract Database System.</p>
+    </footer>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // Default Sample Contract Dataset aligned with LifeBank structure
+        const defaultContractData = [
+            { code: "LBRB-2026-001", dateSubmitted: "2026-01-10", dept: "ADMIN", partyType: "SERVICE PROVIDER", vendor: "CoolAir Maintenance Services", service: "Airconditioning Unit Preventive Maintenance", start: "2026-01-15", expiry: "2027-01-14", terms: "1 Year", paymentMode: "Check Payment", amount: 145000.00, contractType: "RENEWAL", status: "Active", driveLink: "https://drive.google.com" },
+            { code: "LBRB-2026-002", dateSubmitted: "2026-02-01", dept: "ISTD", partyType: "SUPPLIER", vendor: "Microsoft Philippines Inc.", service: "Microsoft 365 Business Licenses", start: "2026-02-01", expiry: "2027-01-31", terms: "1 Year", paymentMode: "Online Transfer", amount: 580000.00, contractType: "RENEWAL", status: "Active", driveLink: "https://drive.google.com" },
+            { code: "LBRB-2026-003", dateSubmitted: "2026-01-20", dept: "SEC. & SAFETY", partyType: "SERVICE PROVIDER", vendor: "Armored Guard Security Corp", service: "Security Services & Guard Deployment", start: "2025-12-01", expiry: "2026-11-30", terms: "1 Year", paymentMode: "Check Payment", amount: 1250000.00, contractType: "RENEWAL", status: "Expiring Soon", driveLink: "https://drive.google.com" },
+            { code: "LBRB-2026-004", dateSubmitted: "2026-03-05", dept: "CRD", partyType: "SERVICE PROVIDER", vendor: "Credit Information Corp (CIC)", service: "Credit Data Feeds & Score Integration", start: "2026-03-01", expiry: "2027-02-28", terms: "1 Year", paymentMode: "Credit Memo", amount: 320000.00, contractType: "NEW", status: "Active", driveLink: "https://drive.google.com" },
+            { code: "LBRB-2026-005", dateSubmitted: "2026-02-15", dept: "BBOD", partyType: "BILLER", vendor: "ECPay Financial Technologies", service: "ECPay Payment & ATM Integration in BLUs", start: "2026-02-15", expiry: "2028-02-14", terms: "2 Years", paymentMode: "ECPay", amount: 450000.00, contractType: "NEW", status: "Active", driveLink: "https://drive.google.com" },
+            { code: "LBRB-2026-006", dateSubmitted: "2025-11-10", dept: "ADMIN", partyType: "SUPPLIER", vendor: "PaperPro Office Depot", service: "Stationery & Printing Supplies", start: "2025-11-15", expiry: "2026-11-14", terms: "1 Year", paymentMode: "Check Payment", amount: 95000.00, contractType: "RENEWAL", status: "Expiring Soon", driveLink: "https://drive.google.com" },
+            { code: "LBRB-2026-007", dateSubmitted: "2025-08-01", dept: "ISTD", partyType: "SERVICE PROVIDER", vendor: "Globe Telecom Inc.", service: "TelCom Leased Lines & Branch Internet", start: "2025-08-01", expiry: "2026-07-31", terms: "1 Year", paymentMode: "Bills Payment Online", amount: 890000.00, contractType: "AMENDMENT", status: "Expired", driveLink: "https://drive.google.com" },
+            { code: "LBRB-2026-008", dateSubmitted: "2026-04-12", dept: "SDID", partyType: "SERVICE PROVIDER", vendor: "SunLife Grepa Financial", service: "Micro-Insurance Provider Agreement", start: "2026-04-15", expiry: "2027-04-14", terms: "1 Year", paymentMode: "Telegraphic Transfer", amount: 670000.00, contractType: "NEW", status: "Active", driveLink: "https://drive.google.com" },
+            { code: "LBRB-2026-009", dateSubmitted: "2026-05-01", dept: "FD", partyType: "VENDOR", vendor: "Prime Realty Holdings", service: "Building & Office Space Lease (HQ)", start: "2026-05-01", expiry: "2029-04-30", terms: "3 Years", paymentMode: "Check Payment", amount: 3600000.00, contractType: "RENEWAL", status: "Active", driveLink: "https://drive.google.com" }
+        ];
+
+        let contractData = JSON.parse(localStorage.getItem('lifebank_contractData_v1')) || JSON.parse(JSON.stringify(defaultContractData));
+        let isEditMode = false;
+        let deptValueChart, typeDoughnutChart;
+
+        window.onload = function() {
+            updateDashboardMetrics();
+            initCharts();
+            populateContractTable();
+            renderExpiringCards();
+        };
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMsg').innerText = msg;
+            toast.classList.remove('translate-x-full');
+            setTimeout(() => toast.classList.add('translate-x-full'), 2500);
+        }
+
+        function toggleEditMode() {
+            isEditMode = !isEditMode;
+            const banner = document.getElementById('editModeBanner');
+            const btnText = document.getElementById('editModeBtnText');
+            const toggleBtn = document.getElementById('editModeToggleBtn');
+
+            if (isEditMode) {
+                document.body.classList.add('edit-mode');
+                banner.classList.remove('hidden');
+                btnText.innerText = "Exit Edit Mode";
+                toggleBtn.classList.add('bg-sky-600', 'text-white');
+                toggleBtn.classList.remove('bg-sky-50', 'text-sky-700');
+                showToast("Edit Mode Enabled");
+            } else {
+                document.body.classList.remove('edit-mode');
+                banner.classList.add('hidden');
+                btnText.innerText = "Enable Edit Mode";
+                toggleBtn.classList.remove('bg-sky-600', 'text-white');
+                toggleBtn.classList.add('bg-sky-50', 'text-sky-700');
+                showToast("Edit Mode Disabled");
+            }
+            populateContractTable();
+        }
+
+        function resetContractData() {
+            if (confirm("Reset contract database to default records?")) {
+                localStorage.removeItem('lifebank_contractData_v1');
+                contractData = JSON.parse(JSON.stringify(defaultContractData));
+                updateDashboardMetrics();
+                updateCharts();
+                populateContractTable();
+                renderExpiringCards();
+                showToast("Database Reset to Defaults");
+            }
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.add('hidden'));
+
+            document.getElementById(`tab-${tabId}`).classList.add('active');
+            document.getElementById(`sec-${tabId}`).classList.remove('hidden');
+        }
+
+        function updateDashboardMetrics() {
+            const totalRecords = contractData.length;
+            const activeContracts = contractData.filter(c => c.status === 'Active');
+            const expiringSoon = contractData.filter(c => c.status === 'Expiring Soon');
+            const inactiveContracts = contractData.filter(c => c.status === 'Expired' || c.status === 'Terminated');
+
+            const totalVal = contractData.reduce((sum, c) => sum + parseFloat(c.amount || 0), 0);
+            const activePct = totalRecords > 0 ? (activeContracts.length / totalRecords) * 100 : 0;
+
+            document.getElementById('kpi-active-count').innerText = activeContracts.length;
+            document.getElementById('kpi-total-records').innerText = `/ ${totalRecords} Total`;
+            document.getElementById('kpi-active-bar').style.width = activePct + '%';
+
+            document.getElementById('kpi-total-value').innerText = `₱${totalVal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            document.getElementById('kpi-expiring-count').innerText = expiringSoon.length;
+            document.getElementById('kpi-inactive-count').innerText = inactiveContracts.length;
+
+            // Audit Tab Updates
+            document.getElementById('audit-active-val').innerText = activeContracts.length;
+            document.getElementById('audit-pending-val').innerText = expiringSoon.length;
+            document.getElementById('audit-financial-val').innerText = `₱${totalVal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        }
+
+        function populateContractTable() {
+            const tbody = document.getElementById('contractTableBody');
+            tbody.innerHTML = '';
+
+            contractData.forEach((c, index) => {
+                let badgeClass = 'bg-slate-100 text-slate-700';
+                if (c.status === 'Active') badgeClass = 'bg-emerald-100 text-emerald-800 font-bold';
+                else if (c.status === 'Expiring Soon') badgeClass = 'bg-amber-100 text-amber-800 font-bold';
+                else if (c.status === 'Expired' || c.status === 'Terminated') badgeClass = 'bg-rose-100 text-rose-800 font-bold';
+
+                const driveBtn = c.driveLink 
+                    ? `<a href="${c.driveLink}" target="_blank" rel="noopener noreferrer" class="text-amber-600 hover:text-amber-800 text-base mr-2" title="Open Google Drive Document"><i class="fa-brands fa-google-drive"></i></a>`
+                    : `<span class="text-slate-300 text-base mr-2" title="No Drive Link"><i class="fa-brands fa-google-drive"></i></span>`;
+
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 transition border-b border-slate-100';
+                tr.innerHTML = `
+                    <td class="p-3 font-bold text-sky-700 whitespace-nowrap">${c.code}</td>
+                    <td class="p-3 font-semibold text-slate-800">${c.dept}</td>
+                    <td class="p-3">
+                        <div class="font-bold text-slate-900">${c.vendor}</div>
+                        <div class="text-[10px] text-slate-400 uppercase font-semibold">${c.partyType}</div>
+                    </td>
+                    <td class="p-3 text-slate-700 font-medium">${c.service}</td>
+                    <td class="p-3 whitespace-nowrap">
+                        <span class="block text-slate-800 font-semibold">${c.expiry}</span>
+                        <span class="text-[10px] text-slate-400">Start: ${c.start}</span>
+                    </td>
+                    <td class="p-3 text-slate-600">${c.paymentMode}</td>
+                    <td class="p-3 text-right font-extrabold text-slate-900 whitespace-nowrap">₱${parseFloat(c.amount).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
+                    <td class="p-3 whitespace-nowrap"><span class="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-bold">${c.contractType}</span></td>
+                    <td class="p-3 whitespace-nowrap"><span class="px-2 py-0.5 rounded text-[10px] ${badgeClass}">${c.status}</span></td>
+                    <td class="p-3 text-center whitespace-nowrap">
+                        ${driveBtn}
+                        <button onclick="viewContractDetails(${index})" class="text-sky-600 hover:text-sky-800 text-base" title="View Document Details"><i class="fa-solid fa-file-pdf"></i></button>
+                    </td>
+                    <td class="p-3 text-center whitespace-nowrap">
+                        <button onclick="editContract(${index})" class="p-1.5 bg-sky-50 text-sky-600 hover:bg-sky-100 rounded mr-1 transition" title="Edit Contract"><i class="fa-solid fa-pen"></i></button>
+                        <button onclick="deleteContract(${index})" class="p-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded transition" title="Delete Contract"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+            filterTable();
+        }
+
+        function filterTable() {
+            const search = document.getElementById('tableSearch').value.toLowerCase();
+            const dept = document.getElementById('deptFilter').value;
+            const type = document.getElementById('typeFilter').value;
+            const status = document.getElementById('statusFilter').value;
+
+            const rows = document.querySelectorAll('#contractTableBody tr');
+
+            rows.forEach(row => {
+                const text = row.innerText.toLowerCase();
+                const rowDept = row.children[1].innerText.trim();
+                const rowType = row.children[2].innerText.toLowerCase();
+                const rowStatus = row.children[8].innerText.trim();
+
+                let matchesSearch = text.includes(search);
+                let matchesDept = (dept === 'ALL' || rowDept === dept);
+                let matchesType = (type === 'ALL' || rowType.includes(type.toLowerCase()));
+                let matchesStatus = (status === 'ALL' || rowStatus.toLowerCase().includes(status.toLowerCase()));
+
+                row.style.display = (matchesSearch && matchesDept && matchesType && matchesStatus) ? '' : 'none';
+            });
+        }
+
+        function renderExpiringCards() {
+            const container = document.getElementById('expiringCardsContainer');
+            const expiring = contractData.filter(c => c.status === 'Expiring Soon' || c.status === 'Expired');
+            
+            if (expiring.length === 0) {
+                container.innerHTML = `<div class="p-6 text-center text-slate-400 text-xs">No contracts currently expiring within 90 days.</div>`;
+                return;
+            }
+
+            let html = '';
+            expiring.forEach(c => {
+                html += `
+                    <div class="p-4 rounded-xl border border-amber-200 bg-amber-50/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div class="space-y-1">
+                            <div class="flex items-center gap-2">
+                                <span class="font-extrabold text-slate-900 text-sm">${c.code}</span>
+                                <span class="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded">${c.dept}</span>
+                                <span class="bg-rose-100 text-rose-800 text-[10px] font-bold px-2 py-0.5 rounded">${c.status}</span>
+                            </div>
+                            <p class="text-xs font-bold text-slate-800">${c.vendor} - ${c.service}</p>
+                            <p class="text-[11px] text-slate-500">Contract Expiry Date: <strong class="text-slate-800">${c.expiry}</strong> | Value: <strong>₱${parseFloat(c.amount).toLocaleString('en-US', {minimumFractionDigits: 2})}</strong></p>
+                        </div>
+                        <button onclick="openAddContractModal()" class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg shadow transition whitespace-nowrap">
+                            Initiate Renewal Process
+                        </button>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        function initCharts() {
+            // Department Valuation Bar Chart
+            const ctx1 = document.getElementById('deptValueChart').getContext('2d');
+            const depts = ['ADMIN', 'BBOD', 'CRD', 'SDID', 'ISTD', 'FD', 'SEC. & SAFETY'];
+            const deptSums = depts.map(d => {
+                return contractData.filter(c => c.dept === d).reduce((s, c) => s + parseFloat(c.amount || 0), 0);
+            });
+
+            deptValueChart = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: depts,
+                    datasets: [{
+                        label: 'Total Valuation (₱)',
+                        data: deptSums,
+                        backgroundColor: '#0284c7',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { callback: v => '₱' + (v/1000) + 'K' } }
+                    }
+                }
+            });
+
+            // Third Party Type Doughnut
+            const ctx2 = document.getElementById('typeDoughnutChart').getContext('2d');
+            const types = ['SERVICE PROVIDER', 'SUPPLIER', 'BILLER', 'VENDOR'];
+            const typeCounts = types.map(t => contractData.filter(c => c.partyType === t).length);
+
+            typeDoughnutChart = new Chart(ctx2, {
+                type: 'doughnut',
+                data: {
+                    labels: types,
+                    datasets: [{
+                        data: typeCounts,
+                        backgroundColor: ['#0369a1', '#10b981', '#f59e0b', '#6366f1']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    cutout: '70%'
+                }
+            });
+        }
+
+        function updateCharts() {
+            const depts = ['ADMIN', 'BBOD', 'CRD', 'SDID', 'ISTD', 'FD', 'SEC. & SAFETY'];
+            deptValueChart.data.datasets[0].data = depts.map(d => contractData.filter(c => c.dept === d).reduce((s, c) => s + parseFloat(c.amount || 0), 0));
+            deptValueChart.update();
+
+            const types = ['SERVICE PROVIDER', 'SUPPLIER', 'BILLER', 'VENDOR'];
+            typeDoughnutChart.data.datasets[0].data = types.map(t => contractData.filter(c => c.partyType === t).length);
+            typeDoughnutChart.update();
+        }
+
+        // Modal Handlers
+        function openAddContractModal() {
+            document.getElementById('modalTitle').innerHTML = `<i class="fa-solid fa-file-circle-plus"></i> Add New Contract`;
+            document.getElementById('editIndex').value = '-1';
+            document.getElementById('contractForm').reset();
+            document.getElementById('contractModal').classList.remove('hidden');
+        }
+
+        function editContract(index) {
+            const c = contractData[index];
+            document.getElementById('modalTitle').innerHTML = `<i class="fa-solid fa-file-pen"></i> Edit Contract`;
+            document.getElementById('editIndex').value = index;
+            document.getElementById('formCode').value = c.code;
+            document.getElementById('formDept').value = c.dept;
+            document.getElementById('formPartyType').value = c.partyType;
+            document.getElementById('formVendor').value = c.vendor;
+            document.getElementById('formService').value = c.service;
+            document.getElementById('formDriveLink').value = c.driveLink || '';
+            document.getElementById('formDateSubmitted').value = c.dateSubmitted || '';
+            document.getElementById('formDateStart').value = c.start;
+            document.getElementById('formDateExpiry').value = c.expiry;
+            document.getElementById('formTerms').value = c.terms;
+            document.getElementById('formPaymentMode').value = c.paymentMode;
+            document.getElementById('formAmount').value = c.amount;
+            document.getElementById('formContractType').value = c.contractType;
+            document.getElementById('formStatus').value = c.status;
+            document.getElementById('contractModal').classList.remove('hidden');
+        }
+
+        function closeContractModal() {
+            document.getElementById('contractModal').classList.add('hidden');
+        }
+
+        function saveContractForm(e) {
+            e.preventDefault();
+            const index = parseInt(document.getElementById('editIndex').value);
+            const newContract = {
+                code: document.getElementById('formCode').value,
+                dept: document.getElementById('formDept').value,
+                partyType: document.getElementById('formPartyType').value,
+                vendor: document.getElementById('formVendor').value,
+                service: document.getElementById('formService').value,
+                driveLink: document.getElementById('formDriveLink').value,
+                dateSubmitted: document.getElementById('formDateSubmitted').value,
+                start: document.getElementById('formDateStart').value,
+                expiry: document.getElementById('formDateExpiry').value,
+                terms: document.getElementById('formTerms').value,
+                paymentMode: document.getElementById('formPaymentMode').value,
+                amount: parseFloat(document.getElementById('formAmount').value),
+                contractType: document.getElementById('formContractType').value,
+                status: document.getElementById('formStatus').value
+            };
+
+            if (index === -1) {
+                contractData.unshift(newContract);
+            } else {
+                contractData[index] = newContract;
+            }
+
+            localStorage.setItem('lifebank_contractData_v1', JSON.stringify(contractData));
+            closeContractModal();
+            updateDashboardMetrics();
+            updateCharts();
+            populateContractTable();
+            renderExpiringCards();
+            showToast("Contract Record Saved Successfully");
+        }
+
+        function deleteContract(index) {
+            if (confirm("Are you sure you want to delete this contract from the compliance registry?")) {
+                contractData.splice(index, 1);
+                localStorage.setItem('lifebank_contractData_v1', JSON.stringify(contractData));
+                updateDashboardMetrics();
+                updateCharts();
+                populateContractTable();
+                renderExpiringCards();
+                showToast("Contract Removed");
+            }
+        }
+
+        function viewContractDetails(index) {
+            const c = contractData[index];
+            const driveLinkHtml = c.driveLink 
+                ? `<a href="${c.driveLink}" target="_blank" class="text-amber-600 hover:underline font-bold flex items-center gap-1"><i class="fa-brands fa-google-drive"></i> Open Google Drive Folder/File</a>`
+                : `<span class="text-slate-400">No link set</span>`;
+
+            const body = document.getElementById('viewModalBody');
+            body.innerHTML = `
+                <div class="grid grid-cols-2 gap-2 border-b border-slate-100 pb-2">
+                    <span class="font-bold text-slate-500">Contract Code:</span>
+                    <span class="font-bold text-sky-700">${c.code}</span>
+                </div>
+                <div class="grid grid-cols-2 gap-2 border-b border-slate-100 pb-2">
+                    <span class="font-bold text-slate-500">Department:</span>
+                    <span>${c.dept}</span>
+                </div>
+                <div class="grid grid-cols-2 gap-2 border-b border-slate-100 pb-2">
+                    <span class="font-bold text-slate-500">Vendor / Provider:</span>
+                    <span class="font-bold text-slate-900">${c.vendor}</span>
+                </div>
+                <div class="grid grid-cols-2 gap-2 border-b border-slate-100 pb-2">
+                    <span class="font-bold text-slate-500">Third Party Classification:</span>
+                    <span>${c.partyType}</span>
+                </div>
+                <div class="grid grid-cols-2 gap-2 border-b border-slate-100 pb-2">
+                    <span class="font-bold text-slate-500">Particulars / Service:</span>
+                    <span>${c.service}</span>
+                </div>
+                <div class="grid grid-cols-2 gap-2 border-b border-slate-100 pb-2">
+                    <span class="font-bold text-slate-500">Google Drive Database:</span>
+                    <span>${driveLinkHtml}</span>
+                </div>
+                <div class="grid grid-cols-2 gap-2 border-b border-slate-100 pb-2">
+                    <span class="font-bold text-slate-500">Validity Period:</span>
+                    <span>${c.start} to ${c.expiry} (${c.terms})</span>
+                </div>
+                <div class="grid grid-cols-2 gap-2 border-b border-slate-100 pb-2">
+                    <span class="font-bold text-slate-500">Payment Channel:</span>
+                    <span>${c.paymentMode}</span>
+                </div>
+                <div class="grid grid-cols-2 gap-2 border-b border-slate-100 pb-2">
+                    <span class="font-bold text-slate-500">Contract Valuation:</span>
+                    <span class="font-extrabold text-emerald-700">₱${parseFloat(c.amount).toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <span class="font-bold text-slate-500">Compliance Status:</span>
+                    <span class="font-bold">${c.status} (${c.contractType})</span>
+                </div>
+            `;
+            document.getElementById('viewModal').classList.remove('hidden');
+        }
+
+        function closeViewModal() {
+            document.getElementById('viewModal').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
